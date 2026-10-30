@@ -63,7 +63,7 @@ impl Db {
 
 pub fn http() -> Result<reqwest::blocking::Client> {
     Ok(reqwest::blocking::Client::builder()
-        .user_agent(concat!("fosslauncher/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("pezzotto-launcher/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(20))
         .timeout(None)
         .build()?)

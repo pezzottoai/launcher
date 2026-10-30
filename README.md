@@ -1,17 +1,18 @@
-# FOSS Launcher
+# pezzotto.ai launcher
 
 A small cross-platform (Linux, Windows, macOS) installer and launcher for open-source
-applications, written in Rust with [egui](https://github.com/emilk/egui). Browse a curated
+applications, including the open-source knock-offs of closed-source apps catalogued at
+[pezzotto.ai](https://pezzottoai.github.io). Written in Rust with [egui](https://github.com/emilk/egui). Browse a curated
 catalog by topic, install with one click, launch, remove.
 
-![FOSS Launcher](docs/screenshot.png)
+![pezzotto.ai launcher](docs/screenshot.png)
 
 Only apps that can actually be installed on your machine are listed; if some need a package
 manager you don't have (Flatpak, winget, Homebrew), the sidebar says how many more you'd get.
 Ctrl+F (or `/`) searches, Esc clears the search and closes the details pane.
 
 The catalog lives in a separate repository,
-[fosslauncher-catalog](https://github.com/sirmmo/fosslauncher-catalog), with one JSON manifest
+[launcher-catalog](https://github.com/pezzottoai/launcher-catalog), with one JSON manifest
 per app and a JSON Schema for the format.
 
 ## How installs work
@@ -27,27 +28,27 @@ it fails:
 | `homebrew` | `brew install [--cask]` |
 | `download` | fetched by the launcher itself, pinned URL + SHA-256 or the latest GitHub release (checked against GitHub's published digest), then: AppImage/binary made executable, `.zip`/`.tar.gz` extracted, or native installer opened |
 
-Downloaded apps go to the per-user data directory (`~/.local/share/fosslauncher/apps/<id>` on
-Linux, `%APPDATA%\fosslauncher\fosslauncher\data\apps` on Windows,
-`~/Library/Application Support/org.fosslauncher.fosslauncher/apps` on macOS). No admin rights are needed except
+Downloaded apps go to the per-user data directory (`~/.local/share/pezzotto-launcher/apps/<id>` on
+Linux, `%APPDATA%\pezzotto\pezzotto-launcher\data\apps` on Windows,
+`~/Library/Application Support/ai.pezzotto.pezzotto-launcher/apps` on macOS). No admin rights are needed except
 where winget/Homebrew/a native installer ask for them. What was installed and how is recorded
 in `installed.json` in the same directory.
 
 ## Usage
 
 ```sh
-fosslauncher                          # GUI
-fosslauncher list                     # apps and how they'd install here (* = installed)
-fosslauncher install org.qgis.qgis
-fosslauncher run org.qgis.qgis
-fosslauncher remove org.qgis.qgis
-fosslauncher --catalog ../fosslauncher-catalog    # use a local catalog checkout (or index.json, or a URL)
+pezzotto-launcher                          # GUI
+pezzotto-launcher list                     # apps and how they'd install here (* = installed)
+pezzotto-launcher install org.qgis.qgis
+pezzotto-launcher run org.qgis.qgis
+pezzotto-launcher remove org.qgis.qgis
+pezzotto-launcher --catalog ../launcher-catalog    # use a local catalog checkout (or index.json, or a URL)
 ```
 
 Environment:
 
-- `FOSSLAUNCHER_CATALOG`: catalog URL/path (default: the published `index.json`).
-- `FOSSLAUNCHER_RENDERER=wgpu`: use wgpu instead of the default OpenGL renderer.
+- `PEZZOTTO_LAUNCHER_CATALOG`: catalog URL/path (default: the published `index.json`).
+- `PEZZOTTO_LAUNCHER_RENDERER=wgpu`: use wgpu instead of the default OpenGL renderer.
 - `GITHUB_TOKEN`: optional, raises the GitHub API rate limit for release lookups.
 
 The remote catalog is cached, so the launcher still works offline.
@@ -75,8 +76,8 @@ cargo packager --release --target x86_64-unknown-linux-gnu --formats deb,appimag
 ## Downloads and releases
 
 `.github/workflows/release.yml` builds every platform on each push to `main` (rolling
-[nightly](https://github.com/sirmmo/fosslauncher/releases/tag/nightly) pre-release) and on each
-`vX.Y.Z` tag (versioned [release](https://github.com/sirmmo/fosslauncher/releases/latest); the
+[nightly](https://github.com/pezzottoai/launcher/releases/tag/nightly) pre-release) and on each
+`vX.Y.Z` tag (versioned [release](https://github.com/pezzottoai/launcher/releases/latest); the
 version is taken from the tag):
 
 | platform | files |
@@ -89,7 +90,7 @@ version is taken from the tag):
 Each release has a `SHA256SUMS.txt`. Builds are not signed with a paid certificate yet:
 
 - macOS: the app is ad-hoc signed. The first time, open it, then go to System Settings → Privacy &
-  Security → "Open Anyway" (or run `xattr -dr com.apple.quarantine "/Applications/FOSS Launcher.app"`).
+  Security → "Open Anyway" (or run `xattr -dr com.apple.quarantine "/Applications/pezzotto.ai launcher.app"`).
 - Windows: SmartScreen asks for confirmation ("More info" → "Run anyway").
 
 To cut a release: `git tag v0.2.0 && git push origin v0.2.0`.

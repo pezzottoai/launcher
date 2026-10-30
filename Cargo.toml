@@ -1,13 +1,13 @@
 [package]
-name = "fosslauncher"
+name = "pezzotto-launcher"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
-description = "Cross-platform installer and launcher for open-source applications"
+description = "pezzotto.ai launcher: install and launch open-source applications, including the open-source knock-offs catalogued at pezzotto.ai"
 license = "MIT"
-repository = "https://github.com/sirmmo/fosslauncher"
-homepage = "https://github.com/sirmmo/fosslauncher"
-authors = ["FOSS Launcher contributors"]
+repository = "https://github.com/pezzottoai/launcher"
+homepage = "https://pezzottoai.github.io"
+authors = ["pezzotto.ai contributors"]
 
 [dependencies]
 anyhow = "1.0.104"
@@ -32,9 +32,9 @@ strip = true
 # Installers for every platform: `cargo build --release --target <triple>` then
 # `cargo packager --release --target <triple>` (see .github/workflows/release.yml).
 [package.metadata.packager]
-product-name = "FOSS Launcher"
-identifier = "org.fosslauncher.FossLauncher"
-publisher = "FOSS Launcher contributors"
+product-name = "pezzotto.ai launcher"
+identifier = "ai.pezzotto.launcher"
+publisher = "pezzotto.ai"
 category = "Utility"
 long-description = "Browse a curated catalog of open-source applications by topic, then install, launch and remove them with one click. Uses Flatpak, winget or Homebrew when available, or downloads official releases directly."
 license-file = "LICENSE"

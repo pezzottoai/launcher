@@ -8,9 +8,9 @@ mod ui;
 use anyhow::{Result, anyhow, bail};
 
 const USAGE: &str = "\
-FOSS Launcher: install and launch open-source applications
+pezzotto.ai launcher: install and launch open-source applications
 
-usage: fosslauncher [--catalog <url|index.json|catalog-dir>] [command]
+usage: pezzotto-launcher [--catalog <url|index.json|catalog-dir>] [command]
 
 commands:
   (none)          open the graphical launcher
@@ -19,12 +19,12 @@ commands:
   remove <id>     uninstall an app
   run <id>        launch an installed app
 
-The catalog can also be set with FOSSLAUNCHER_CATALOG.";
+The catalog can also be set with PEZZOTTO_LAUNCHER_CATALOG.";
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     let mut source =
-        std::env::var("FOSSLAUNCHER_CATALOG").unwrap_or_else(|_| catalog::DEFAULT_CATALOG.into());
+        std::env::var("PEZZOTTO_LAUNCHER_CATALOG").unwrap_or_else(|_| catalog::DEFAULT_CATALOG.into());
     if let Some(pos) = args.iter().position(|a| a == "--catalog") {
         if pos + 1 >= args.len() {
             bail!("--catalog needs a value");
@@ -45,22 +45,22 @@ fn main() -> Result<()> {
 fn gui(source: String) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
-            .with_title("FOSS Launcher")
+            .with_title("pezzotto.ai launcher")
             .with_inner_size([1100.0, 720.0])
             .with_min_inner_size([720.0, 420.0])
             .with_icon(
                 eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon-256.png"))
                     .expect("bundled icon is a valid PNG"),
             ),
-        // OpenGL works on the widest range of (older) machines; FOSSLAUNCHER_RENDERER=wgpu opts out.
-        renderer: match std::env::var("FOSSLAUNCHER_RENDERER").as_deref() {
+        // OpenGL works on the widest range of (older) machines; PEZZOTTO_LAUNCHER_RENDERER=wgpu opts out.
+        renderer: match std::env::var("PEZZOTTO_LAUNCHER_RENDERER").as_deref() {
             Ok("wgpu") => eframe::Renderer::Wgpu,
             _ => eframe::Renderer::Glow,
         },
         ..Default::default()
     };
     eframe::run_native(
-        "fosslauncher",
+        "ai.pezzotto.launcher",
         options,
         Box::new(move |cc| Ok(Box::new(ui::LauncherApp::new(cc, source)))),
     )

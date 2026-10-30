@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 fn dirs() -> &'static directories::ProjectDirs {
     static DIRS: OnceLock<directories::ProjectDirs> = OnceLock::new();
     DIRS.get_or_init(|| {
-        directories::ProjectDirs::from("org", "fosslauncher", "fosslauncher")
+        directories::ProjectDirs::from("ai", "pezzotto", "pezzotto-launcher")
             .expect("no home directory")
     })
 }

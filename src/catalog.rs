@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::paths;
 
 pub const DEFAULT_CATALOG: &str =
-    "https://raw.githubusercontent.com/sirmmo/fosslauncher-catalog/main/index.json";
+    "https://raw.githubusercontent.com/pezzottoai/launcher-catalog/main/index.json";
 const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,7 +257,7 @@ fn parse_index(text: &str) -> Result<Catalog> {
     let cat: Catalog = serde_json::from_str(text).context("parsing catalog index")?;
     if cat.schema_version != SCHEMA_VERSION {
         bail!(
-            "catalog schema_version {} is not supported (expected {SCHEMA_VERSION}); update FOSS Launcher",
+            "catalog schema_version {} is not supported (expected {SCHEMA_VERSION}); update pezzotto.ai launcher",
             cat.schema_version
         );
     }

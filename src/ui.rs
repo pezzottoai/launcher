@@ -305,7 +305,7 @@ impl eframe::App for LauncherApp {
                         egui::Image::new(egui::include_image!("../assets/icon-128.png"))
                             .fit_to_exact_size(Vec2::splat(30.0)),
                     );
-                    ui.label(RichText::new("FOSS Launcher").size(18.0).strong());
+                    ui.label(RichText::new("pezzotto.ai launcher").size(18.0).strong());
                     ui.add_space(24.0);
                     let search = egui::TextEdit::singleline(&mut self.query)
                         .id(search_id)
@@ -508,7 +508,7 @@ impl eframe::App for LauncherApp {
                         ),
                         View::Installed => (
                             "Installed".to_owned(),
-                            "Apps installed with FOSS Launcher".to_owned(),
+                            "Apps installed with pezzotto.ai launcher".to_owned(),
                         ),
                         View::Topic(id) => catalog
                             .topics

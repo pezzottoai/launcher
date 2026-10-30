@@ -6,7 +6,7 @@ rust-version = "1.95"
 description = "pezzotto.ai launcher: install and launch open-source applications, including the open-source knock-offs catalogued at pezzotto.ai"
 license = "MIT"
 repository = "https://github.com/pezzottoai/launcher"
-homepage = "https://pezzottoai.github.io"
+homepage = "https://pezzotto.ai"
 authors = ["pezzotto.ai contributors"]
 
 [dependencies]

@@ -2,7 +2,7 @@
 
 A small cross-platform (Linux, Windows, macOS) installer and launcher for open-source
 applications, including the open-source knock-offs of closed-source apps catalogued at
-[pezzotto.ai](https://pezzottoai.github.io). Written in Rust with [egui](https://github.com/emilk/egui). Browse a curated
+[pezzotto.ai](https://pezzotto.ai). Written in Rust with [egui](https://github.com/emilk/egui). Browse a curated
 catalog by topic, install with one click, launch, remove.
 
 ![pezzotto.ai launcher](docs/screenshot.png)

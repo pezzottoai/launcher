@@ -43,6 +43,15 @@ and a JSON Schema for the format. It carries the knock-offs graded on the pezzot
 the market (GIMP, Inkscape, LibreOffice, QGIS, Blender…). To add an app, open a pull request
 there.
 
+The published `index.json` is signed (minisign, Ed25519) by the catalog's CI, and the launcher
+ships the public key: an index whose signature is missing or does not verify is refused, also
+when it comes from the offline cache. So a mirror, a proxy or a hijacked DNS entry cannot hand
+the launcher a different catalog. Anyone can check the file too:
+
+```sh
+minisign -Vm index.json -p keys/pezzotto-launcher-catalog.pub   # key in the launcher-catalog repo
+```
+
 ## How installs work
 
 Each catalog entry lists installers in order of preference. The launcher uses the first one
@@ -54,7 +63,13 @@ it fails:
 | `flatpak` | `flatpak install --user` from Flathub (Flathub remote is added per-user if missing) |
 | `winget` | `winget install --id … --exact --silent` |
 | `homebrew` | `brew install [--cask]` |
-| `download` | fetched by the launcher itself, pinned URL + SHA-256 or the latest GitHub release (checked against GitHub's published digest), then: AppImage/binary made executable, `.zip`/`.tar.gz` extracted, or native installer opened |
+| `download` | fetched by the launcher itself: the exact file and SHA-256 pinned in the signed catalog, or else the latest GitHub release (checked only against GitHub's own digest); then AppImage/binary made executable, `.zip`/`.tar.gz` extracted, or native installer opened |
+
+Apps whose downloads are all pinned carry `certified: pinned` in the catalog and show
+"pinned release, checked <date>" in their details. In **strict mode** (`--strict` or
+`PEZZOTTO_LAUNCHER_STRICT=1`) the launcher installs only pinned downloads and never resolves
+"latest" at install time. Flatpak, winget and Homebrew installs are unaffected: those package
+managers verify their own packages.
 
 Downloaded apps go to the per-user data directory (`~/.local/share/pezzotto-launcher/apps/<id>` on
 Linux, `%APPDATA%\pezzotto\pezzotto-launcher\data\apps` on Windows,
@@ -70,12 +85,18 @@ pezzotto-launcher list                     # apps and how they'd install here (*
 pezzotto-launcher install org.qgis.qgis
 pezzotto-launcher run org.qgis.qgis
 pezzotto-launcher remove org.qgis.qgis
+pezzotto-launcher --strict install com.getartcraft.GridCraft   # only if pinned in the catalog
 pezzotto-launcher --catalog ../launcher-catalog    # use a local catalog checkout (or index.json, or a URL)
 ```
 
 Environment:
 
-- `PEZZOTTO_LAUNCHER_CATALOG`: catalog URL/path (default: the published `index.json`).
+- `PEZZOTTO_LAUNCHER_CATALOG`: catalog URL/path (default: the published `index.json`). Local
+  files and directories are not signature-checked; URLs are.
+- `PEZZOTTO_LAUNCHER_STRICT=1`: strict mode, see above.
+- `PEZZOTTO_LAUNCHER_CATALOG_KEY`: minisign public key (base64) for a catalog you sign yourself.
+- `PEZZOTTO_LAUNCHER_UNSIGNED_CATALOG=1`: skip the signature check. For local testing only; the
+  window header then says "unsigned catalog".
 - `PEZZOTTO_LAUNCHER_RENDERER=wgpu`: use wgpu instead of the default OpenGL renderer.
 - `GITHUB_TOKEN`: optional, raises the GitHub API rate limit for release lookups.
 

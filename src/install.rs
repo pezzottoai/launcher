@@ -5,6 +5,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -67,6 +68,20 @@ pub fn http() -> Result<reqwest::blocking::Client> {
         .connect_timeout(Duration::from_secs(20))
         .timeout(None)
         .build()?)
+}
+
+static STRICT: AtomicBool = AtomicBool::new(false);
+
+/// Strict mode (`--strict` or PEZZOTTO_LAUNCHER_STRICT=1): only install downloads whose exact
+/// file and SHA-256 are pinned in the signed catalog; never resolve "latest" at install time.
+/// Package managers (flatpak, winget, brew) are not affected: they verify their own packages.
+pub fn strict() -> bool {
+    STRICT.load(Ordering::Relaxed)
+        || std::env::var_os("PEZZOTTO_LAUNCHER_STRICT").is_some_and(|v| v == "1")
+}
+
+pub fn set_strict(on: bool) {
+    STRICT.store(on, Ordering::Relaxed);
 }
 
 /// Which of flatpak, winget and brew are on PATH; looked up once, since the UI asks every frame.
@@ -326,10 +341,15 @@ struct Resolved {
     file_name: String,
     sha256: Option<String>,
     version: Option<String>,
+    /// The file and hash come from the catalog (true) or from GitHub at install time (false).
+    pinned: bool,
 }
 
 fn resolve(dl: &Download, report: Report) -> Result<Resolved> {
     if let Some(url) = &dl.url {
+        if strict() && dl.sha256.is_none() {
+            bail!("strict mode: the catalog pins this download without a SHA-256");
+        }
         let file_name = url
             .rsplit('/')
             .next()
@@ -343,7 +363,14 @@ fn resolve(dl: &Download, report: Report) -> Result<Resolved> {
             file_name,
             sha256: dl.sha256.clone(),
             version: dl.version.clone(),
+            pinned: true,
         });
+    }
+    if strict() {
+        bail!(
+            "strict mode: this download is not pinned in the catalog (no exact file and SHA-256), \
+             so the latest release will not be resolved at install time"
+        );
     }
     let gh = dl
         .github
@@ -396,6 +423,7 @@ fn resolve(dl: &Download, report: Report) -> Result<Resolved> {
             .digest
             .and_then(|d| d.strip_prefix("sha256:").map(str::to_string)),
         version: Some(rel.tag_name),
+        pinned: false,
     })
 }
 
@@ -429,7 +457,12 @@ fn download(res: &Resolved, dest: &Path, report: Report) -> Result<()> {
                 res.file_name
             );
         }
-        Some(_) => report(Event::Log(format!("SHA-256 verified ({got})"))),
+        Some(_) if res.pinned => report(Event::Log(format!(
+            "SHA-256 matches the catalog ({got})"
+        ))),
+        Some(_) => report(Event::Log(format!(
+            "SHA-256 matches what GitHub reports ({got}); not pinned in the catalog"
+        ))),
         None => report(Event::Log(format!(
             "No checksum published; SHA-256 is {got}"
         ))),

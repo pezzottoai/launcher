@@ -2,13 +2,16 @@
 
 use std::path::Path;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 
 use crate::paths;
 
 pub const DEFAULT_CATALOG: &str =
     "https://raw.githubusercontent.com/pezzottoai/launcher-catalog/main/index.json";
+/// minisign public key the catalog index is signed with
+/// (`keys/pezzotto-launcher-catalog.pub` in the launcher-catalog repository).
+pub const CATALOG_PUBLIC_KEY: &str = "RWSno9tBYnLnG/KQRfAa2iK69RTj9Zfl1ThL59bCuCs2NC71wZflkRPG";
 const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,6 +21,18 @@ pub struct Catalog {
     pub generated: Option<String>,
     pub topics: Vec<Topic>,
     pub apps: Vec<App>,
+    /// How a remote index was authenticated. Not part of the file; `None` for local files and
+    /// directories.
+    #[serde(skip)]
+    pub signature: Option<SignatureStatus>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignatureStatus {
+    /// `index.json.minisig` verified against the catalog public key.
+    Verified,
+    /// PEZZOTTO_LAUNCHER_UNSIGNED_CATALOG=1 was set: the signature was not checked.
+    Skipped,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,7 +62,16 @@ pub struct App {
     pub topics: Vec<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Present when every download installer is pinned to one release file with its hash.
+    #[serde(default)]
+    pub certified: Option<Certified>,
     pub installers: Vec<Installer>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Certified {
+    pub level: String,
+    pub date: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -176,9 +200,11 @@ impl InstallerKind {
                     if *cask { "cask" } else { "formula" }
                 )
             }
-            Self::Download(d) => match (&d.github, &d.url) {
-                (Some(gh), _) => format!("Download from GitHub releases ({})", gh.repo),
-                _ => "Direct download".into(),
+            Self::Download(d) => match (&d.url, &d.github, &d.version) {
+                (Some(_), _, Some(v)) => format!("Download (pinned {v})"),
+                (Some(_), _, None) => "Download (pinned)".into(),
+                (None, Some(gh), _) => format!("Download from GitHub releases ({})", gh.repo),
+                (None, None, _) => "Direct download".into(),
             },
         }
     }
@@ -220,17 +246,28 @@ impl App {
 pub fn load(source: &str) -> Result<(Catalog, Option<String>)> {
     if source.starts_with("http://") || source.starts_with("https://") {
         let cache = paths::cache_dir().join("index.json");
-        match fetch(source) {
-            Ok(text) => {
-                let cat = parse_index(&text)?;
+        let cache_sig = paths::cache_dir().join("index.json.minisig");
+        match fetch_signed(source) {
+            Ok((text, sig)) => {
+                let status = verify(&text, sig.as_deref())?;
+                let mut cat = parse_index(&text)?;
+                cat.signature = Some(status);
                 let _ = std::fs::create_dir_all(paths::cache_dir());
-                let _ = std::fs::write(&cache, text);
+                let _ = std::fs::write(&cache, &text);
+                let _ = match &sig {
+                    Some(s) => std::fs::write(&cache_sig, s),
+                    None => std::fs::remove_file(&cache_sig),
+                };
                 Ok((cat, None))
             }
             Err(e) => {
                 let text = std::fs::read_to_string(&cache)
                     .with_context(|| format!("cannot fetch catalog ({e:#}) and no cached copy"))?;
-                Ok((parse_index(&text)?, Some(format!("{e:#}"))))
+                let sig = std::fs::read_to_string(&cache_sig).ok();
+                let status = verify(&text, sig.as_deref()).context("cached catalog")?;
+                let mut cat = parse_index(&text)?;
+                cat.signature = Some(status);
+                Ok((cat, Some(format!("{e:#}"))))
             }
         }
     } else {
@@ -251,6 +288,42 @@ fn fetch(url: &str) -> Result<String> {
         .send()?
         .error_for_status()?;
     Ok(resp.text()?)
+}
+
+/// Fetch the index and its detached minisign signature (`<url>.minisig`). A missing signature
+/// is only tolerated when signature checking is disabled.
+fn fetch_signed(url: &str) -> Result<(String, Option<String>)> {
+    let text = fetch(url)?;
+    let sig = match fetch(&format!("{url}.minisig")) {
+        Ok(s) => Some(s),
+        Err(_) if unsigned_allowed() => None,
+        Err(e) => return Err(e.context("fetching the catalog signature (index.json.minisig)")),
+    };
+    Ok((text, sig))
+}
+
+fn unsigned_allowed() -> bool {
+    std::env::var_os("PEZZOTTO_LAUNCHER_UNSIGNED_CATALOG").is_some_and(|v| v == "1")
+}
+
+/// Check the index against its minisign signature. Fails closed: a missing signature, a
+/// different key or a modified index are all errors, unless PEZZOTTO_LAUNCHER_UNSIGNED_CATALOG=1.
+/// PEZZOTTO_LAUNCHER_CATALOG_KEY replaces the built-in public key, for a catalog you sign yourself.
+fn verify(text: &str, sig: Option<&str>) -> Result<SignatureStatus> {
+    if unsigned_allowed() {
+        return Ok(SignatureStatus::Skipped);
+    }
+    let sig = sig.ok_or_else(|| anyhow!("the catalog has no signature (index.json.minisig)"))?;
+    let key_b64 = std::env::var("PEZZOTTO_LAUNCHER_CATALOG_KEY")
+        .unwrap_or_else(|_| CATALOG_PUBLIC_KEY.to_string());
+    let key = minisign_verify::PublicKey::from_base64(key_b64.trim())
+        .map_err(|e| anyhow!("bad catalog public key: {e}"))?;
+    let sig = minisign_verify::Signature::decode(sig)
+        .map_err(|e| anyhow!("bad catalog signature: {e}"))?;
+    key.verify(text.as_bytes(), &sig, false).map_err(|e| {
+        anyhow!("the catalog signature does not verify ({e}); refusing to use this catalog")
+    })?;
+    Ok(SignatureStatus::Verified)
 }
 
 fn parse_index(text: &str) -> Result<Catalog> {
@@ -290,5 +363,6 @@ fn load_dir(dir: &Path) -> Result<Catalog> {
         generated: None,
         topics: topics.topics,
         apps,
+        signature: None,
     })
 }

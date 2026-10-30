@@ -10,7 +10,7 @@ use anyhow::{Result, anyhow, bail};
 const USAGE: &str = "\
 pezzotto.ai launcher: install and launch open-source applications
 
-usage: pezzotto-launcher [--catalog <url|index.json|catalog-dir>] [command]
+usage: pezzotto-launcher [--catalog <url|index.json|catalog-dir>] [--strict] [command]
 
 commands:
   (none)          open the graphical launcher
@@ -19,7 +19,15 @@ commands:
   remove <id>     uninstall an app
   run <id>        launch an installed app
 
-The catalog can also be set with PEZZOTTO_LAUNCHER_CATALOG.";
+--strict only installs downloads pinned in the catalog (exact file + SHA-256), never \"latest\".
+
+The remote catalog is accepted only with a valid minisign signature (index.json.minisig).
+
+environment:
+  PEZZOTTO_LAUNCHER_CATALOG            catalog source, like --catalog
+  PEZZOTTO_LAUNCHER_STRICT=1           like --strict
+  PEZZOTTO_LAUNCHER_CATALOG_KEY        minisign public key of a catalog you sign yourself
+  PEZZOTTO_LAUNCHER_UNSIGNED_CATALOG=1 skip the signature check (local testing only)";
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
@@ -31,6 +39,10 @@ fn main() -> Result<()> {
         }
         source = args.remove(pos + 1);
         args.remove(pos);
+    }
+    if let Some(pos) = args.iter().position(|a| a == "--strict") {
+        args.remove(pos);
+        install::set_strict(true);
     }
     match args.first().map(String::as_str) {
         None => gui(source),

@@ -9,7 +9,7 @@ use eframe::egui::{
     StrokeKind, TextStyle, UiBuilder, Vec2, pos2, vec2,
 };
 
-use crate::catalog::{App, Catalog, Platform};
+use crate::catalog::{App, Catalog, InstallerKind, Platform, SignatureStatus};
 use crate::install::{self, Db, Event};
 
 const ACCENT: Color32 = Color32::from_rgb(124, 92, 255);
@@ -333,6 +333,21 @@ impl eframe::App for LauncherApp {
                             .map(Platform::label)
                             .unwrap_or("unsupported OS");
                         ui.weak(format!("{host} · {}", std::env::consts::ARCH));
+                        if let Loaded::Ready { catalog, .. } = &*loaded {
+                            match catalog.signature {
+                                Some(SignatureStatus::Verified) => {
+                                    ui.weak("· ✔ signed catalog").on_hover_text(
+                                        "index.json carries a valid pezzotto.ai signature",
+                                    );
+                                }
+                                Some(SignatureStatus::Skipped) => {
+                                    ui.colored_label(RED, "· unsigned catalog").on_hover_text(
+                                        "PEZZOTTO_LAUNCHER_UNSIGNED_CATALOG is set: the signature was not checked",
+                                    );
+                                }
+                                None => {}
+                            }
+                        }
                     });
                 });
             });
@@ -941,6 +956,22 @@ fn details(
                     .join(", "),
             );
             ui.end_row();
+            if app
+                .installers
+                .iter()
+                .any(|i| matches!(i.kind, InstallerKind::Download(_)))
+            {
+                ui.weak("Downloads");
+                match &app.certified {
+                    Some(c) => ui
+                        .label(format!("pinned release, checked {}", c.date))
+                        .on_hover_text("The exact files and their SHA-256 are in the signed catalog"),
+                    None => ui
+                        .label("latest upstream release at install time")
+                        .on_hover_text("Not pinned in the catalog: strict mode refuses this install"),
+                };
+                ui.end_row();
+            }
             if let Some(rec) = db.apps.get(&app.id) {
                 ui.weak("Installed via");
                 ui.label(&rec.method);

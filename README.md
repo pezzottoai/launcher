@@ -1,5 +1,10 @@
 # pezzotto.ai launcher
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://pezzotto.ai/assets/logo-dark.svg">
+  <img src="https://pezzotto.ai/assets/logo.svg" alt="pezzotto.ai" width="360">
+</picture>
+
 > **'o guaglione** — the shop boy at the stall who hands you the goods.
 
 The launcher is the third piece of [pezzotto.ai](https://pezzotto.ai), the street stall of

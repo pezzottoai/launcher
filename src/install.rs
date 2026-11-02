@@ -457,9 +457,7 @@ fn download(res: &Resolved, dest: &Path, report: Report) -> Result<()> {
                 res.file_name
             );
         }
-        Some(_) if res.pinned => report(Event::Log(format!(
-            "SHA-256 matches the catalog ({got})"
-        ))),
+        Some(_) if res.pinned => report(Event::Log(format!("SHA-256 matches the catalog ({got})"))),
         Some(_) => report(Event::Log(format!(
             "SHA-256 matches what GitHub reports ({got}); not pinned in the catalog"
         ))),

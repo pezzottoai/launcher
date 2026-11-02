@@ -31,8 +31,8 @@ environment:
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
-    let mut source =
-        std::env::var("PEZZOTTO_LAUNCHER_CATALOG").unwrap_or_else(|_| catalog::DEFAULT_CATALOG.into());
+    let mut source = std::env::var("PEZZOTTO_LAUNCHER_CATALOG")
+        .unwrap_or_else(|_| catalog::DEFAULT_CATALOG.into());
     if let Some(pos) = args.iter().position(|a| a == "--catalog") {
         if pos + 1 >= args.len() {
             bail!("--catalog needs a value");

@@ -110,9 +110,13 @@ impl Pezzotto {
 
     pub fn grade_meaning(&self) -> &'static str {
         match self.grade.as_str() {
-            "A" => "Indistinguishable at arm's length. You could hand it to a user of the original.",
+            "A" => {
+                "Indistinguishable at arm's length. You could hand it to a user of the original."
+            }
             "B" => "Convincing from three metres. Core flows match; details drift.",
-            "C" => "Recognisable from across the street. The shape is right, half the features are missing.",
+            "C" => {
+                "Recognisable from across the street. The shape is right, half the features are missing."
+            }
             "D" => "You'd have to be told. A landing page and a dream.",
             _ => "Not graded yet.",
         }

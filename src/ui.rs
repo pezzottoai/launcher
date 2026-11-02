@@ -1094,10 +1094,14 @@ fn details(
                 match &app.certified {
                     Some(c) => ui
                         .label(format!("pinned release, checked {}", c.date))
-                        .on_hover_text("The exact files and their SHA-256 are in the signed catalog"),
+                        .on_hover_text(
+                            "The exact files and their SHA-256 are in the signed catalog",
+                        ),
                     None => ui
                         .label("latest upstream release at install time")
-                        .on_hover_text("Not pinned in the catalog: strict mode refuses this install"),
+                        .on_hover_text(
+                            "Not pinned in the catalog: strict mode refuses this install",
+                        ),
                 };
                 ui.end_row();
             }

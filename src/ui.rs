@@ -9,12 +9,14 @@ use eframe::egui::{
     StrokeKind, TextStyle, UiBuilder, Vec2, pos2, vec2,
 };
 
-use crate::catalog::{App, Catalog, InstallerKind, Platform, SignatureStatus};
+use crate::catalog::{App, Catalog, InstallerKind, Pezzotto, Platform, SignatureStatus};
 use crate::install::{self, Db, Event};
 
 const ACCENT: Color32 = Color32::from_rgb(124, 92, 255);
 const GREEN: Color32 = Color32::from_rgb(46, 170, 104);
 const RED: Color32 = Color32::from_rgb(220, 72, 72);
+/// pezzotto.ai stamp red, for everything knock-off.
+const STAMP: Color32 = Color32::from_rgb(200, 49, 43);
 const CARD_MIN_WIDTH: f32 = 290.0;
 const CARD_HEIGHT: f32 = 156.0;
 const GAP: f32 = 14.0;
@@ -52,6 +54,8 @@ enum Loaded {
 enum View {
     Discover,
     Installed,
+    /// Only the knock-offs: apps with a `pezzotto` block.
+    Pezzotti,
     Topic(String),
 }
 
@@ -403,6 +407,7 @@ impl eframe::App for LauncherApp {
             }
         }
         let installed_count = shown.iter().filter(|a| db.apps.contains_key(&a.id)).count();
+        let pezzotti_count = shown.iter().filter(|a| a.pezzotto.is_some()).count();
 
         egui::Panel::left("nav")
             .resizable(false)
@@ -433,6 +438,17 @@ impl eframe::App for LauncherApp {
                         Some(installed_count),
                     ) {
                         self.view = View::Installed;
+                    }
+                    if pezzotti_count > 0
+                        && nav_item(
+                            ui,
+                            self.view == View::Pezzotti,
+                            STAMP,
+                            "Knock-offs",
+                            Some(pezzotti_count),
+                        )
+                    {
+                        self.view = View::Pezzotti;
                     }
                     ui.add_space(10.0);
                     section_label(ui, "CATEGORIES");
@@ -514,16 +530,22 @@ impl eframe::App for LauncherApp {
                         View::Discover => (
                             "Discover".to_owned(),
                             format!(
-                                "{} open-source apps ready to install on {}",
+                                "{} open-source apps ready to install on {}, {} of them knock-offs",
                                 shown.len(),
                                 Platform::current()
                                     .map(Platform::label)
-                                    .unwrap_or("this system")
+                                    .unwrap_or("this system"),
+                                pezzotti_count
                             ),
                         ),
                         View::Installed => (
                             "Installed".to_owned(),
                             "Apps installed with pezzotto.ai launcher".to_owned(),
+                        ),
+                        View::Pezzotti => (
+                            "Knock-offs".to_owned(),
+                            "Open-source imitations of closed-source apps, graded on pezzotto.ai by how far away they still fool you"
+                                .to_owned(),
                         ),
                         View::Topic(id) => catalog
                             .topics
@@ -542,6 +564,7 @@ impl eframe::App for LauncherApp {
                             || match &self.view {
                                 View::Discover => true,
                                 View::Installed => db.apps.contains_key(&a.id),
+                                View::Pezzotti => a.pezzotto.is_some(),
                                 View::Topic(t) => a.topics.iter().any(|x| x == t),
                             }
                     })
@@ -761,6 +784,96 @@ fn chip(ui: &mut egui::Ui, text: &str, color: Color32) {
         });
 }
 
+/// "PEZZOTTO · B" in stamp red, with the grade's meaning on hover.
+fn grade_chip(ui: &mut egui::Ui, pz: &Pezzotto) {
+    egui::Frame::new()
+        .fill(STAMP.gamma_multiply(0.16))
+        .corner_radius(10)
+        .inner_margin(egui::Margin::symmetric(8, 2))
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new(format!("PEZZOTTO · {}", pz.grade))
+                    .size(11.5)
+                    .strong()
+                    .color(STAMP),
+            );
+        })
+        .response
+        .on_hover_text(format!("Grade {}: {}", pz.grade, pz.grade_meaning()));
+}
+
+/// The grade as a stamp: a red rounded square with the letter in it.
+fn grade_badge(ui: &mut egui::Ui, grade: &str, size: f32) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
+    let painter = ui.painter();
+    painter.rect(
+        rect,
+        (size * 0.2) as u8,
+        STAMP.gamma_multiply(0.14),
+        Stroke::new(2.0, STAMP),
+        StrokeKind::Inside,
+    );
+    painter.text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        grade,
+        FontId::proportional(size * 0.6),
+        STAMP,
+    );
+}
+
+/// The stall's verdict: grade, how it was reached, what the knock-off has and lacks.
+fn pezzotto_section(ui: &mut egui::Ui, pz: &Pezzotto) {
+    section_label(ui, "PEZZOTTO GRADE");
+    ui.horizontal(|ui| {
+        grade_badge(ui, &pz.grade, 52.0);
+        ui.add_space(4.0);
+        ui.vertical(|ui| {
+            ui.set_max_width(ui.available_width());
+            ui.add(egui::Label::new(RichText::new(pz.grade_meaning()).strong()).wrap());
+            let mut how = pz.verified_text().to_owned();
+            if let Some(checked) = &pz.checked {
+                how.push_str(&format!(", checked {checked}"));
+            }
+            if let Some(status) = &pz.status {
+                how.push_str(&format!(" · upstream {status}"));
+            }
+            ui.add(egui::Label::new(RichText::new(how).small().weak()).wrap());
+        });
+    });
+    if !pz.ran() {
+        ui.add_space(4.0);
+        hint_box(
+            ui,
+            "Desk grade: nobody at the stall has run this one yet. The grade comes from what the project shows and claims.",
+        );
+    }
+    if !pz.missing.is_empty() {
+        ui.add_space(6.0);
+        egui::CollapsingHeader::new(format!(
+            "What {} has that this doesn't ({})",
+            pz.of,
+            pz.missing.len()
+        ))
+        .id_salt(("missing", &pz.entry))
+        .default_open(true)
+        .show(ui, |ui| {
+            for item in &pz.missing {
+                ui.label(format!("• {item}"));
+            }
+        });
+    }
+    if !pz.coverage.is_empty() {
+        egui::CollapsingHeader::new(format!("What the knock-off covers ({})", pz.coverage.len()))
+            .id_salt(("coverage", &pz.entry))
+            .show(ui, |ui| {
+                for item in &pz.coverage {
+                    ui.label(format!("• {item}"));
+                }
+            });
+    }
+}
+
 fn topic_name<'a>(catalog: &'a Catalog, id: &'a str) -> &'a str {
     catalog
         .topics
@@ -829,10 +942,10 @@ fn card(
                     ui.add(
                         egui::Label::new(RichText::new(&app.name).size(16.0).strong()).truncate(),
                     );
-                    let by = if app.developer.is_empty() {
-                        app.license.clone()
-                    } else {
-                        format!("{} · {}", app.developer, app.license)
+                    let by = match (&app.pezzotto, app.developer.is_empty()) {
+                        (Some(pz), _) => format!("knock-off of {} · {}", pz.of, app.license),
+                        (None, true) => app.license.clone(),
+                        (None, false) => format!("{} · {}", app.developer, app.license),
                     };
                     ui.add(egui::Label::new(RichText::new(by).small().weak()).truncate());
                 });
@@ -849,7 +962,9 @@ fn card(
             .max_rect(bottom)
             .layout(Layout::left_to_right(Align::Center)),
         |ui| {
-            if let Some(t) = app.topics.first() {
+            if let Some(pz) = &app.pezzotto {
+                grade_chip(ui, pz);
+            } else if let Some(t) = app.topics.first() {
                 chip(ui, topic_name(catalog, t), v.weak_text_color());
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -893,6 +1008,9 @@ fn details(
             if !app.developer.is_empty() {
                 ui.weak(&app.developer);
             }
+            if let Some(pz) = &app.pezzotto {
+                ui.colored_label(STAMP, format!("a pezzotto of {}", pz.of));
+            }
             if db.apps.contains_key(&app.id) {
                 ui.colored_label(GREEN, "✔ Installed");
             }
@@ -933,10 +1051,21 @@ fn details(
         ui.label(para.trim());
     }
 
+    if let Some(pz) = &app.pezzotto {
+        ui.add_space(14.0);
+        pezzotto_section(ui, pz);
+    }
+
     ui.add_space(14.0);
     section_label(ui, "LINKS");
     ui.hyperlink_to("Website", &app.homepage);
     ui.hyperlink_to("Source code", &app.source_code);
+    if let Some(pz) = &app.pezzotto {
+        ui.hyperlink_to("Entry on pezzotto.ai", pz.page());
+        if let Some(original) = &pz.original {
+            ui.hyperlink_to(format!("The original: {}", pz.of), original);
+        }
+    }
 
     ui.add_space(10.0);
     section_label(ui, "INFORMATION");

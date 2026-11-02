@@ -62,6 +62,9 @@ pub struct App {
     pub topics: Vec<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Present when the app is a knock-off of a closed-source original graded on pezzotto.ai.
+    #[serde(default)]
+    pub pezzotto: Option<Pezzotto>,
     /// Present when every download installer is pinned to one release file with its hash.
     #[serde(default)]
     pub certified: Option<Certified>,
@@ -72,6 +75,60 @@ pub struct App {
 pub struct Certified {
     pub level: String,
     pub date: String,
+}
+
+/// The stall's verdict on a knock-off, copied from the pezzotto.ai clone catalog
+/// (`scripts/pezzotto_sync.py` in the catalog repo).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Pezzotto {
+    /// Id of the entry on pezzotto.ai.
+    pub entry: String,
+    /// The closed-source original.
+    pub of: String,
+    #[serde(default)]
+    pub original: Option<String>,
+    /// A to D: from how far away does it still fool you?
+    pub grade: String,
+    /// `run` when someone at the stall ran it, `desk` when graded from docs and screenshots.
+    #[serde(default)]
+    pub verified: String,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub checked: Option<String>,
+    #[serde(default)]
+    pub coverage: Vec<String>,
+    #[serde(default)]
+    pub missing: Vec<String>,
+}
+
+impl Pezzotto {
+    /// The entry's page on the stall.
+    pub fn page(&self) -> String {
+        format!("https://pezzotto.ai/#clone-{}", self.entry)
+    }
+
+    pub fn grade_meaning(&self) -> &'static str {
+        match self.grade.as_str() {
+            "A" => "Indistinguishable at arm's length. You could hand it to a user of the original.",
+            "B" => "Convincing from three metres. Core flows match; details drift.",
+            "C" => "Recognisable from across the street. The shape is right, half the features are missing.",
+            "D" => "You'd have to be told. A landing page and a dream.",
+            _ => "Not graded yet.",
+        }
+    }
+
+    pub fn ran(&self) -> bool {
+        self.verified == "run"
+    }
+
+    pub fn verified_text(&self) -> &'static str {
+        if self.ran() {
+            "run by the stall"
+        } else {
+            "desk-graded from docs, screenshots and the project's own parity claims"
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -237,6 +294,8 @@ impl App {
             .iter()
             .any(|s| s.to_lowercase().contains(&q))
             || self.tags.iter().any(|t| t.to_lowercase().contains(&q))
+            // "photoshop" finds the Photoshop knock-off
+            || self.pezzotto.as_ref().is_some_and(|p| p.of.to_lowercase().contains(&q))
     }
 }
 

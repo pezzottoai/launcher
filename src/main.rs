@@ -14,7 +14,7 @@ usage: pezzotto-launcher [--catalog <url|index.json|catalog-dir>] [--strict] [co
 
 commands:
   (none)          open the graphical launcher
-  list            list apps available for this platform
+  list            list apps available for this platform; knock-offs show their original and grade
   install <id>    install an app
   remove <id>     uninstall an app
   run <id>        launch an installed app
@@ -114,8 +114,13 @@ fn cli(source: &str, cmd: &str, id: Option<&str>) -> Result<()> {
                 } else {
                     " "
                 };
+                let pezzotto = app
+                    .pezzotto
+                    .as_ref()
+                    .map(|p| format!("  pezzotto of {} ({})", p.of, p.grade))
+                    .unwrap_or_default();
                 println!(
-                    "{state} {:32} {:14} {:18} {}",
+                    "{state} {:32} {:14} {:18} {}{pezzotto}",
                     app.id,
                     app.name,
                     app.license,

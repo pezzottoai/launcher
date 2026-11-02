@@ -44,9 +44,18 @@ very much in the spirit of the stall:
 The launcher reads its catalog from a secondary repository,
 [launcher-catalog](https://github.com/pezzottoai/launcher-catalog): one JSON manifest per app
 and a JSON Schema for the format. It carries the knock-offs graded on the pezzotto.ai blanket
-(the ArtCraft apps, RustGIS and friends) alongside the open-source classics they sit next to at
-the market (GIMP, Inkscape, LibreOffice, QGIS, Blender…). To add an app, open a pull request
-there.
+(the ArtCraft apps, RustGIS, Chord and friends) alongside the open-source classics they sit
+next to at the market (GIMP, Inkscape, LibreOffice, QGIS, Blender…). To add an app, open a pull
+request there.
+
+The launcher knows which is which. A knock-off carries the stall's verdict in its manifest (the
+`pezzotto` block, copied from the [pezzotto.ai catalog](https://pezzotto.ai/#catalog)): what
+closed-source original it imitates, its pezzotto grade, whether anyone at the stall has actually
+run it, and what the original has that the clone lacks. In the launcher that shows up as a red
+`PEZZOTTO · B` stamp on the tile, a **Knock-offs** view in the sidebar, and a grade pane in the
+details with the missing features listed and a link to the entry on pezzotto.ai. Searching for
+the original ("photoshop") finds its knock-off. The grade is the stall's, not the launcher's: to
+dispute it, open an issue on the site repo.
 
 The published `index.json` is signed (minisign, Ed25519) by the catalog's CI, and the launcher
 ships the public key: an index whose signature is missing or does not verify is refused, also
